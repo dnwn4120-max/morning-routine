@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아침 루틴 트래커</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #085041;
+  --text: #1a1a1a; --text-mid: #555; --text-light: #888;
+  --border: #e0e0e0; --bg: #f5f5f3; --white: #fff;
+  --radius: 10px; --radius-sm: 6px;
+  --amber: #EF9F27; --amber-light: #FAEEDA; --amber-dark: #633806;
+  --red: #E24B4A;
+}
+body { font-family: -apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+.app { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
+h1 { font-size:21px; font-weight:700; color:var(--green-dark); margin-bottom:3px; }
+.subtitle { font-size:12px; color:var(--text-light); margin-bottom:14px; }
+
+/* Setup */
+.setup-banner { background:#FFF8E1; border:1px solid #FFD54F; border-radius:var(--radius-sm); padding:12px 14px; font-size:13px; color:#5D4037; margin-bottom:12px; line-height:1.6; }
+.setup-banner input { width:100%; margin-top:7px; padding:7px 10px; border:1px solid #ddd; border-radius:var(--radius-sm); font-size:12px; font-family:monospace; }
+.setup-banner button { margin-top:7px; padding:6px 14px; background:var(--green); color:white; border:none; border-radius:var(--radius-sm); font-size:13px; cursor:pointer; }
+.sync-status { font-size:11px; color:var(--text-light); text-align:right; margin-bottom:10px; }
+.sync-status.ok { color:var(--green); } .sync-status.err { color:var(--red); } .sync-status.syncing { color:var(--amber); }
+
+/* Tabs */
+.tabs { display:flex; gap:3px; margin-bottom:18px; background:#e8e8e6; border-radius:var(--radius-sm); padding:3px; }
+.tab { flex:1; padding:7px; font-size:13px; font-weight:500; border:none; background:transparent; border-radius:5px; cursor:pointer; color:var(--text-mid); transition:all 0.15s; }
+.tab.active { background:var(--white); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+.panel { display:none; } .panel.active { display:block; }
+.slabel { font-size:10px; font-weight:700; color:var(--text-light); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:7px; margin-top:18px; display:flex; align-items:center; justify-content:space-between; }
+.slabel:first-child { margin-top:0; }
+
+/* Anchor */
+.anchor-box { background:var(--green-light); border:1px solid #a8ddc9; border-radius:var(--radius); padding:13px 16px; display:flex; align-items:center; justify-content:space-between; }
+.anchor-left { display:flex; align-items:center; gap:11px; }
+.anchor-icon { width:38px; height:38px; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; font-size:19px; }
+.anchor-title { font-size:14px; font-weight:600; color:var(--green-dark); }
+.anchor-sub { font-size:12px; color:#3a7a60; margin-top:1px; }
+.check-circle { width:30px; height:30px; border-radius:50%; border:2px solid #a8ddc9; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; transition:all 0.15s; flex-shrink:0; }
+.check-circle.done { background:var(--green); border-color:var(--green); }
+
+/* Card selector */
+.card-selector { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.cs-btn { padding:6px 12px; border:1px solid var(--border); border-radius:999px; font-size:12px; font-weight:500; cursor:pointer; background:white; color:var(--text-mid); transition:all 0.15s; }
+.cs-btn.active { color:white; border-color:transparent; }
+
+/* Today card */
+.today-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--white); overflow:hidden; }
+.tc-header { padding:11px 15px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f0f0; }
+.cat-tag { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; flex-shrink:0; }
+.tc-title { font-size:15px; font-weight:600; color:var(--text); }
+
+/* Activity (상위) */
+.activity-section { border-bottom:1px solid #f5f5f5; }
+.activity-section:last-child { border-bottom:none; }
+.act-header { display:flex; align-items:center; gap:8px; padding:11px 15px 8px; }
+.act-header-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.act-header-title { font-size:14px; font-weight:600; color:var(--text); flex:1; }
+.act-header-time { font-size:12px; color:var(--text-light); }
+.act-progress { height:3px; background:#f0f0f0; margin:0 15px 8px; border-radius:2px; overflow:hidden; }
+.act-progress-fill { height:100%; border-radius:2px; transition:width 0.3s; }
+
+/* Steps (하위) */
+.steps-area { padding:0 15px 12px; display:flex; flex-direction:column; gap:5px; }
+.step-row { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; background:#fafafa; border-radius:var(--radius-sm); cursor:pointer; user-select:none; transition:opacity 0.15s; }
+.step-row.done-step { opacity:0.45; }
+.step-row.recording { background:#f0faf6; outline:1px solid var(--green); }
+.step-check { width:18px; height:18px; border-radius:4px; border:1.5px solid var(--border); background:white; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; margin-top:1px; }
+.step-row.done-step .step-check { background:#999; border-color:#999; color:white; }
+.step-body { flex:1; }
+.step-text { font-size:13px; color:var(--text); line-height:1.4; }
+.step-row.done-step .step-text { text-decoration:line-through; color:var(--text-light); }
+.step-meta { display:flex; align-items:center; gap:8px; margin-top:3px; }
+.step-planned { font-size:11px; color:var(--text-light); }
+.step-actual { font-size:11px; color:var(--green); font-weight:600; }
+.recording-dot { font-size:11px; color:var(--green); font-weight:600; animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.step-actions { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+.timer-btn { font-size:11px; padding:2px 7px; border:1px solid var(--green); border-radius:var(--radius-sm); background:white; color:var(--green); cursor:pointer; white-space:nowrap; }
+.timer-btn.running { background:var(--green); color:white; }
+.edit-time-btn { font-size:10px; color:var(--text-light); cursor:pointer; padding:2px 4px; }
+
+/* Overall progress */
+.overall-progress { display:flex; align-items:center; gap:10px; margin:12px 0 8px; }
+.prog-bar { flex:1; height:5px; background:#eee; border-radius:3px; overflow:hidden; }
+.prog-fill { height:100%; background:var(--green); border-radius:3px; transition:width 0.3s; }
+.prog-text { font-size:12px; color:var(--text-light); }
+
+/* Celebration */
+.celebration { background:var(--green-light); border:1px solid #a8ddc9; border-radius:var(--radius); padding:14px 16px; text-align:center; font-size:15px; font-weight:600; color:var(--green-dark); display:none; margin-top:10px; }
+
+.shuffle-btn { font-size:11px; color:var(--text-mid); background:white; border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 9px; cursor:pointer; }
+.miss-rule { background:var(--green-light); border:1px solid #a8ddc9; border-radius:var(--radius-sm); padding:10px 14px; font-size:14px; font-weight:600; color:var(--green-dark); margin-top:14px; text-align:center; }
+.log-area { border:1px solid var(--border); border-radius:var(--radius-sm); background:white; padding:10px 12px; }
+.log-input { width:100%; background:transparent; border:none; outline:none; font-size:13px; color:var(--text); font-family:inherit; resize:none; line-height:1.6; }
+.save-btn { width:100%; padding:12px; background:var(--green); color:white; border:none; border-radius:var(--radius-sm); font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; }
+.save-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* Week */
+.week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.day-cell { border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 3px 7px; text-align:center; background:white; }
+.day-cell.done-day { background:var(--green-light); border-color:#a8ddc9; }
+.day-cell.today { border-color:var(--green); }
+.day-name { font-size:10px; color:var(--text-light); margin-bottom:3px; }
+.day-num { font-size:14px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.day-cell.today .day-num { color:var(--green); }
+.stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.stat-card { background:white; border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px; text-align:center; }
+.stat-num { font-size:22px; font-weight:700; }
+.stat-label { font-size:11px; color:var(--text-light); margin-top:1px; }
+.cat-bar-row { display:flex; align-items:center; gap:9px; }
+.cat-bar-label { font-size:12px; color:var(--text-mid); width:80px; flex-shrink:0; }
+.cat-bar-track { flex:1; height:6px; background:#eee; border-radius:3px; overflow:hidden; }
+.cat-bar-fill { height:100%; border-radius:3px; }
+.cat-bar-count { font-size:11px; color:var(--text-light); width:24px; text-align:right; }
+
+/* ── Admin / Edit panel ── */
+.admin-card { border:1px solid var(--border); border-radius:var(--radius); background:white; overflow:hidden; margin-bottom:10px; }
+.admin-card-header { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; }
+.admin-card-header .cat-tag { font-size:11px; }
+.admin-card-name { font-size:14px; font-weight:600; flex:1; }
+.admin-chevron { font-size:12px; color:var(--text-light); transition:transform 0.2s; }
+.admin-card.open .admin-chevron { transform:rotate(180deg); }
+.admin-card-body { display:none; border-top:1px solid #f0f0f0; padding:12px 14px; }
+.admin-card.open .admin-card-body { display:block; }
+.admin-act { border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; overflow:hidden; }
+.admin-act-header { display:flex; align-items:center; gap:8px; padding:9px 11px; background:#fafafa; }
+.admin-act-title-input { flex:1; border:none; background:transparent; font-size:13px; font-weight:600; color:var(--text); outline:none; }
+.admin-act-time-input { width:55px; border:1px solid var(--border); border-radius:4px; font-size:12px; padding:3px 6px; text-align:center; color:var(--text); }
+.admin-act-del { font-size:12px; color:var(--red); cursor:pointer; padding:2px 6px; }
+.admin-steps { padding:8px 11px; display:flex; flex-direction:column; gap:5px; }
+.admin-step-row { display:flex; align-items:center; gap:6px; }
+.admin-step-input { flex:1; border:none; border-bottom:1px solid var(--border); background:transparent; font-size:12px; padding:4px 2px; outline:none; color:var(--text); }
+.admin-step-time { width:50px; border:1px solid var(--border); border-radius:4px; font-size:11px; padding:3px 5px; text-align:center; }
+.admin-step-del { font-size:11px; color:var(--red); cursor:pointer; padding:2px 5px; flex-shrink:0; }
+.admin-add-step { font-size:12px; color:var(--green); cursor:pointer; padding:4px 0; }
+.admin-add-act { font-size:12px; color:var(--green); cursor:pointer; padding:5px 0; display:block; text-align:center; border:1px dashed #a8ddc9; border-radius:var(--radius-sm); margin-top:4px; }
+.admin-save-row { display:flex; justify-content:flex-end; margin-top:8px; }
+.admin-save-btn { padding:6px 14px; background:var(--green); color:white; border:none; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; }
+.admin-add-card { width:100%; padding:10px; border:1px dashed #a8ddc9; border-radius:var(--radius); background:transparent; color:var(--green); font-size:13px; cursor:pointer; margin-top:4px; }
+
+.footer-note { font-size:11px; color:var(--text-light); text-align:center; margin-top:22px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🌅 아침 루틴 트래커</h1>
+  <p class="subtitle">매일 아침, 자리에 앉는 것부터 시작해요</p>
+
+  <div class="setup-banner" id="setupBanner">
+    <strong>⚙️ 첫 설정 필요</strong> — Google Sheets 자동 저장을 위해 Apps Script URL을 입력해주세요.
+    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/...../exec"/>
+    <button onclick="saveScriptUrl()">저장하고 연결하기</button>
+  </div>
+  <div class="sync-status" id="syncStatus">⬜ 구글 시트 미연결</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('today')">오늘</button>
+    <button class="tab" onclick="switchTab('week')">이번 주</button>
+    <button class="tab" onclick="switchTab('edit')">카드 편집</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="panel active" id="panel-today">
+    <div class="anchor-box">
+      <div class="anchor-left">
+        <div class="anchor-icon">☕</div>
+        <div>
+          <div class="anchor-title">자리에 앉기</div>
+          <div class="anchor-sub">7:00 · 커피 한 잔 · 오늘 카드 선택</div>
+        </div>
+      </div>
+      <div class="check-circle" id="anchorBtn" onclick="toggleAnchor()"></div>
+    </div>
+
+    <div class="slabel">
+      <span>루틴 카드 선택</span>
+    </div>
+    <div class="card-selector" id="cardSelector"></div>
+
+    <div class="slabel">
+      <span>오늘의 활동</span>
+      <span id="actSelector" style="display:flex;gap:5px;flex-wrap:wrap;"></span>
+    </div>
+    <div class="today-card" id="todayCard"></div>
+
+    <div class="overall-progress">
+      <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-text" id="progText">0 / 0</div>
+    </div>
+
+    <div class="celebration" id="celebration">🎉 오늘도 아침을 알차게 보냈어요!</div>
+
+    <div class="slabel" style="margin-top:14px;">한 줄 소감</div>
+    <div class="log-area"><textarea class="log-input" id="logInput" rows="2" placeholder="오늘 느낀 것, 배운 것을 짧게 적어보세요..."></textarea></div>
+    <button class="save-btn" onclick="saveToSheet()">📊 구글 시트에 오늘 기록 저장</button>
+    <div class="miss-rule">일어나서 앉기만 해도 성공!</div>
+  </div>
+
+  <!-- WEEK -->
+  <div class="panel" id="panel-week">
+    <div class="slabel" style="margin-top:0">이번 주 기록</div>
+    <div class="week-grid" id="weekGrid"></div>
+    <div class="slabel">통계</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num" id="statDays">0</div><div class="stat-label">완료한 날</div></div>
+      <div class="stat-card"><div class="stat-num" id="statStreak">0</div><div class="stat-label">연속 일수</div></div>
+      <div class="stat-card"><div class="stat-num" id="statRate">0%</div><div class="stat-label">달성률</div></div>
+    </div>
+    <div class="slabel">카테고리별 현황</div>
+    <div id="catStats" style="display:flex;flex-direction:column;gap:9px;"></div>
+  </div>
+
+  <!-- EDIT -->
+  <div class="panel" id="panel-edit">
+    <div class="slabel" style="margin-top:0">카드 편집 — 수정 후 저장하면 즉시 반영돼요</div>
+    <div id="adminCards"></div>
+    <button class="admin-add-card" onclick="addCard()">+ 새 카드 추가</button>
+  </div>
+
+  <p class="footer-note">💾 브라우저에 자동 저장 · 📊 구글 시트 버튼으로 영구 기록</p>
+</div>
+
+<script>
+// ── 기본 카드 데이터 ─────────────────────────────────
+const DEFAULT_CARDS = [
+  { id:'job', cat:'💼', label:'취업 준비', color:'#FFF0E6', text:'#7A3B10', bar:'#E87A2F',
+    acts:[
+      { title:'취업 전략 리서치', time:'40분', steps:[{t:'취업 전략 리서치',m:'30분'},{t:'노트북LM에 소스로 저장',m:'10분'}] },
+      { title:'포트폴리오 작업', time:'45분', steps:[{t:'어제까지 한 것 복기',m:'10분'},{t:'오늘 할 것 1가지 정하기',m:'5분'},{t:'집중 작업',m:'30분'}] },
+      { title:'공고 탐색', time:'50분', steps:[{t:'추천 공고 메일 확인',m:'30분'},{t:'공고 리스트업',m:'20분'}] },
+    ]},
+  { id:'ai', cat:'🤖', label:'AI 학습', color:'#E6F1FB', text:'#0C447C', bar:'#378ADD',
+    acts:[
+      { title:'AI 아카이빙', time:'60분', steps:[{t:'AI 관련 영상·아티클 골라두기',m:'10분'},{t:'읽으면서 메모',m:'40분'},{t:'핵심 3줄 요약',m:'10분'}] },
+      { title:'운영 자동화 프로젝트', time:'40분', steps:[{t:'오늘 만들 것 정하기',m:'5분'},{t:'바이브코딩으로 제작·개선',m:'30분'},{t:'결과 한 줄 기록',m:'5분'}] },
+    ]},
+  { id:'mind', cat:'🧘‍♀️', label:'마인드 컨트롤', color:'#EEEDFE', text:'#3C3489', bar:'#7F77DD',
+    acts:[
+      { title:'모닝 페이지', time:'30분', steps:[{t:'지금 머릿속 그대로 쓰기',m:'15분'},{t:'노션 모닝루틴 페이지 작성',m:'15분'}] },
+      { title:'독서 + 필사', time:'30분', steps:[{t:'독서 + 필사',m:'30분'}] },
+    ]},
+  { id:'explore', cat:'🔍', label:'자유 탐색', color:'#E1F5EE', text:'#085041', bar:'#1D9E75',
+    acts:[
+      { title:'관심 분야 탐색', time:'60분', steps:[{t:'주제 하나 정하기',m:'5분'},{t:'자유롭게 검색·읽기',m:'45분'},{t:'흥미로웠던 것 메모',m:'10분'}] },
+    ]},
+  { id:'refresh', cat:'✨', label:'리프레시', color:'#FAEEDA', text:'#633806', bar:'#EF9F27',
+    acts:[
+      { title:'아침 스트레칭', time:'10분', steps:[{t:'목·어깨 스트레칭',m:'10분'}] },
+      { title:'옷 갈아입기 → 아침 산책', time:'20분', steps:[{t:'옷 갈아입기',m:'5분'},{t:'아침 산책',m:'15분'}] },
+    ]},
+];
+
+// ── 상태 ─────────────────────────────────
+function loadCards() {
+  try { const c=JSON.parse(localStorage.getItem('routineCards')); return c&&c.length?c:JSON.parse(JSON.stringify(DEFAULT_CARDS)); }
+  catch { return JSON.parse(JSON.stringify(DEFAULT_CARDS)); }
+}
+function saveCards() { localStorage.setItem('routineCards',JSON.stringify(CARDS)); }
+
+function loadLog() { try { return JSON.parse(localStorage.getItem('routineLog')||'{}'); } catch { return {}; } }
+function saveLog() { localStorage.setItem('routineLog',JSON.stringify(LOG)); }
+
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function loadToday() {
+  try { return JSON.parse(localStorage.getItem('routineToday')||'{}'); } catch { return {}; }
+}
+function saveToday() { localStorage.setItem('routineToday',JSON.stringify(TODAY)); }
+
+let CARDS = loadCards();
+let LOG = loadLog();
+let TODAY = loadToday();
+
+function td() {
+  const k=todayKey();
+  if(!TODAY[k]) TODAY[k]={anchor:false,cardId:CARDS[0].id,actIdx:0,stepChecked:{},actTimes:{}};
+  if(!TODAY[k].stepChecked) TODAY[k].stepChecked={};
+  if(!TODAY[k].actTimes) TODAY[k].actTimes={};
+  return TODAY[k];
+}
+
+// ── Anchor ───────────────────────────────
+function toggleAnchor() { td().anchor=!td().anchor; saveToday(); renderAnchor(); }
+function renderAnchor() {
+  const btn=document.getElementById('anchorBtn');
+  btn.className='check-circle'+(td().anchor?' done':'');
+  btn.textContent=td().anchor?'✓':'';
+}
+
+// ── Card / Act selection ──────────────────
+function getCard() { return CARDS.find(c=>c.id===td().cardId)||CARDS[0]; }
+function getAct() { const c=getCard(); return c.acts[td().actIdx%c.acts.length]; }
+
+function renderCardSelector() {
+  const sel=document.getElementById('cardSelector');
+  sel.innerHTML=CARDS.map(c=>`
+    <button class="cs-btn${td().cardId===c.id?' active':''}"
+      style="${td().cardId===c.id?`background:${c.bar};border-color:${c.bar};color:white`:''}"
+      onclick="selectCard('${c.id}')">${c.cat} ${c.label}</button>`).join('');
+}
+
+function selectCard(id) {
+  td().cardId=id; td().actIdx=0; td().stepChecked={}; td().actTimes={};
+  if(activeTimer){clearInterval(activeTimer.iv);activeTimer=null;}
+  saveToday(); renderAll();
+}
+
+function renderActSelector() {
+  const card=getCard();
+  const sel=document.getElementById('actSelector');
+  sel.innerHTML=card.acts.map((a,i)=>`
+    <button class="cs-btn${td().actIdx===i?' active':''}"
+      style="${td().actIdx===i?`background:${card.bar};border-color:${card.bar};color:white`:''};font-size:11px;padding:4px 9px;"
+      onclick="selectAct(${i})">${a.title}</button>`).join('');
+}
+
+function selectAct(i) {
+  if(activeTimer){clearInterval(activeTimer.iv);activeTimer=null;}
+  td().actIdx=i; td().stepChecked={}; td().actTimes={};
+  saveToday(); renderAll();
+}
+
+// ── Timer ─────────────────────────────────
+let activeTimer=null; // {stepKey, iv, startSec}
+
+function startStep(stepKey) {
+  if(activeTimer&&activeTimer.stepKey!==stepKey){
+    clearInterval(activeTimer.iv);
+    const elapsed=Math.floor(Date.now()/1000-activeTimer.startSec);
+    td().actTimes[activeTimer.stepKey]={sec:elapsed,running:false};
+    activeTimer=null;
+  }
+  if(activeTimer&&activeTimer.stepKey===stepKey){
+    // pause
+    clearInterval(activeTimer.iv);
+    const elapsed=Math.floor(Date.now()/1000-activeTimer.startSec);
+    td().actTimes[stepKey]={sec:elapsed,running:false};
+    activeTimer=null;
+    saveToday(); renderCard(); return;
+  }
+  const prev=(td().actTimes[stepKey]&&td().actTimes[stepKey].sec)||0;
+  const startSec=Date.now()/1000-prev;
+  activeTimer={stepKey,startSec,iv:setInterval(()=>{
+    const s=Math.floor(Date.now()/1000-startSec);
+    td().actTimes[stepKey]={sec:s,running:true};
+    saveToday();
+    const el=document.getElementById('actual-'+stepKey);
+    if(el) el.textContent=fmtSec(s);
+  },1000)};
+  td().actTimes[stepKey]={...(td().actTimes[stepKey]||{}),running:true};
+  saveToday(); renderCard();
+}
+
+function editStepTime(stepKey) {
+  const cur=td().actTimes[stepKey]?Math.floor((td().actTimes[stepKey].sec||0)/60):0;
+  const inp=prompt('실제 소요 시간 (분):', cur);
+  if(inp===null) return;
+  const m=parseInt(inp);
+  if(isNaN(m)||m<0){alert('올바른 숫자를 입력해주세요.');return;}
+  td().actTimes[stepKey]={sec:m*60,running:false};
+  saveToday(); renderCard();
+}
+
+function fmtSec(s){ return Math.floor(s/60)+'분 '+String(s%60).padStart(2,'0')+'초'; }
+
+function toggleStep(stepKey) {
+  // 기록 중이면 체크 해제 불가
+  if(td().stepChecked[stepKey]&&activeTimer&&activeTimer.stepKey===stepKey) return;
+  if(!td().stepChecked[stepKey]&&activeTimer&&activeTimer.stepKey===stepKey){
+    clearInterval(activeTimer.iv);
+    const s=Math.floor(Date.now()/1000-activeTimer.startSec);
+    td().actTimes[stepKey]={sec:s,running:false};
+    activeTimer=null;
+  }
+  td().stepChecked[stepKey]=!td().stepChecked[stepKey];
+  saveToday(); renderCard(); checkCelebration();
+}
+
+function checkCelebration() {
+  const act=getAct();
+  const card=getCard();
+  const allDone=act.steps.every((_,si)=>td().stepChecked[card.id+'-'+td().actIdx+'-'+si]);
+  document.getElementById('celebration').style.display=allDone?'block':'none';
+}
+
+function renderCard() {
+  const card=getCard(), act=getAct();
+  const steps=act.steps.map((s,si)=>{
+    const key=card.id+'-'+td().actIdx+'-'+si;
+    const isDone=!!td().stepChecked[key];
+    const tData=td().actTimes[key]||{};
+    const isRunning=tData.running&&activeTimer&&activeTimer.stepKey===key;
+    const hasSec=tData.sec>0;
+    return `<div class="step-row${isDone?' done-step':''}${isRunning?' recording':''}" onclick="toggleStep('${key}')">
+      <div class="step-check">${isDone?'✓':''}</div>
+      <div class="step-body">
+        <div class="step-text">${s.t}</div>
+        <div class="step-meta">
+          <span class="step-planned">${s.m}</span>
+          ${hasSec?`<span class="step-actual" id="actual-${key}">${fmtSec(tData.sec)}</span>`:''}
+          ${isRunning?`<span class="recording-dot">● 기록 중</span>`:''}
+        </div>
+      </div>
+      <div class="step-actions" onclick="event.stopPropagation()">
+        ${!isDone?`<button class="timer-btn${isRunning?' running':''}" onclick="startStep('${key}')">${isRunning?'⏸':'▶'}</button>`:''}
+        ${hasSec?`<span class="edit-time-btn" onclick="editStepTime('${key}')">✏️</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const doneCount=act.steps.filter((_,si)=>td().stepChecked[card.id+'-'+td().actIdx+'-'+si]).length;
+  const pct=act.steps.length?doneCount/act.steps.length*100:0;
+
+  document.getElementById('todayCard').innerHTML=`
+    <div class="tc-header">
+      <span class="cat-tag" style="background:${card.color};color:${card.text}">${card.cat} ${card.label}</span>
+      <span class="tc-title">${act.title}</span>
+      <span style="font-size:12px;color:var(--text-light);margin-left:auto">${act.time}</span>
+    </div>
+    <div class="act-progress"><div class="act-progress-fill" style="width:${pct}%;background:${card.bar}"></div></div>
+    <div class="steps-area">${steps}</div>`;
+
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progText').textContent=doneCount+' / '+act.steps.length;
+  checkCelebration();
+}
+
+// ── Log ───────────────────────────────────
+function initLog() {
+  const el=document.getElementById('logInput');
+  el.value=LOG[todayKey()]||'';
+  el.addEventListener('input',()=>{LOG[todayKey()]=el.value;saveLog();});
+}
+
+// ── Google Sheets ─────────────────────────
+function getUrl(){return localStorage.getItem('scriptUrl')||'';}
+function saveScriptUrl(){
+  const u=document.getElementById('scriptUrlInput').value.trim();
+  if(!u.startsWith('https://script.google.com')){alert('URL이 올바르지 않아요.');return;}
+  localStorage.setItem('scriptUrl',u);
+  document.getElementById('setupBanner').style.display='none';
+  setStatus('ok','✅ 구글 시트 연결됨');
+}
+function initSetupBanner(){
+  if(getUrl()){document.getElementById('setupBanner').style.display='none';setStatus('ok','✅ 구글 시트 연결됨');}
+}
+function setStatus(t,m){const el=document.getElementById('syncStatus');el.textContent=m;el.className='sync-status '+t;}
+
+async function saveToSheet(){
+  const url=getUrl();
+  if(!url){alert('먼저 Apps Script URL을 설정해주세요.');return;}
+  const card=getCard(),act=getAct();
+  const doneCount=act.steps.filter((_,si)=>td().stepChecked[card.id+'-'+td().actIdx+'-'+si]).length;
+  const totalMin=Object.values(td().actTimes).reduce((s,t)=>s+Math.floor((t.sec||0)/60),0);
+  const payload={date:todayKey(),anchor:td().anchor,cardTitle:card.label,actTitle:act.title,
+    category:card.cat+' '+card.label,completedSteps:doneCount,totalSteps:act.steps.length,
+    minutes:totalMin,log:LOG[todayKey()]||''};
+  const btn=document.querySelector('.save-btn');
+  btn.disabled=true;btn.textContent='저장 중...';setStatus('syncing','⏳ 저장 중...');
+  try{
+    await fetch(url,{method:'POST',body:JSON.stringify(payload)});
+    setStatus('ok','✅ '+todayKey()+' 저장 완료!');
+    btn.textContent='✅ 저장 완료';
+    setTimeout(()=>{btn.disabled=false;btn.textContent='📊 구글 시트에 오늘 기록 저장';},3000);
+  }catch{
+    setStatus('err','❌ 저장 실패');btn.disabled=false;btn.textContent='📊 구글 시트에 오늘 기록 저장';
+  }
+}
+
+// ── Week ──────────────────────────────────
+function renderWeek(){
+  const today=new Date(),todayD=today.getDay(),days=['일','월','화','수','목','금','토'];
+  let html='';
+  for(let i=0;i<7;i++){
+    const d=new Date(today);d.setDate(today.getDate()-todayD+i);
+    const k=d.toISOString().slice(0,10),dd=TODAY[k]||{};
+    html+=`<div class="day-cell${dd.anchor?' done-day':''}${i===todayD?' today':''}">
+      <div class="day-name">${days[i]}</div><div class="day-num">${d.getDate()}</div>
+      <div style="font-size:10px;color:${dd.anchor?'#1D9E75':'#ccc'}">${dd.anchor?'완료':'—'}</div>
+    </div>`;
+  }
+  document.getElementById('weekGrid').innerHTML=html;
+  let done=0,streak=0;
+  for(let i=0;i<7;i++){const d=new Date(today);d.setDate(today.getDate()-todayD+i);const k=d.toISOString().slice(0,10);if(TODAY[k]&&TODAY[k].anchor)done++;}
+  for(let i=0;i<30;i++){const d=new Date(today);d.setDate(today.getDate()-i);const k=d.toISOString().slice(0,10);if(TODAY[k]&&TODAY[k].anchor)streak++;else break;}
+  document.getElementById('statDays').textContent=done;
+  document.getElementById('statStreak').textContent=streak;
+  document.getElementById('statRate').textContent=Math.round(done/7*100)+'%';
+  const catHtml=CARDS.map(c=>{
+    const cnt=Object.keys(TODAY).filter(k=>TODAY[k]&&TODAY[k].cardId===c.id&&TODAY[k].anchor).length;
+    const pct=Math.min(100,Math.round(cnt/Math.max(done,1)*100));
+    return `<div class="cat-bar-row"><div class="cat-bar-label">${c.cat} ${c.label}</div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%;background:${c.bar}"></div></div>
+      <div class="cat-bar-count">${cnt}일</div></div>`;
+  }).join('');
+  document.getElementById('catStats').innerHTML=catHtml;
+}
+
+// ── Admin / Edit ──────────────────────────
+function renderAdmin(){
+  const el=document.getElementById('adminCards');
+  el.innerHTML=CARDS.map((card,ci)=>`
+    <div class="admin-card" id="acard-${ci}">
+      <div class="admin-card-header" onclick="toggleAdminCard(${ci})">
+        <span class="cat-tag" style="background:${card.color};color:${card.text}">${card.cat} ${card.label}</span>
+        <span class="admin-card-name" id="aname-${ci}">${card.label}</span>
+        <span class="admin-chevron">▼</span>
+      </div>
+      <div class="admin-card-body">
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+          <label style="font-size:12px;color:var(--text-light)">이름</label>
+          <input style="flex:1;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:3px;outline:none" 
+            value="${card.label}" onchange="updateCardName(${ci},this.value)"/>
+          <label style="font-size:12px;color:var(--text-light)">이모지</label>
+          <input style="width:40px;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:3px;text-align:center;outline:none"
+            value="${card.cat}" onchange="updateCardEmoji(${ci},this.value)"/>
+          <span style="font-size:12px;color:var(--red);cursor:pointer" onclick="deleteCard(${ci})">카드 삭제</span>
+        </div>
+        ${card.acts.map((act,ai)=>`
+          <div class="admin-act">
+            <div class="admin-act-header">
+              <input class="admin-act-title-input" value="${act.title}" 
+                onchange="updateActTitle(${ci},${ai},this.value)" placeholder="활동 이름"/>
+              <input class="admin-act-time-input" value="${act.time}"
+                onchange="updateActTime(${ci},${ai},this.value)" placeholder="시간"/>
+              <span class="admin-act-del" onclick="deleteAct(${ci},${ai})">✕ 삭제</span>
+            </div>
+            <div class="admin-steps">
+              ${act.steps.map((s,si)=>`
+                <div class="admin-step-row">
+                  <input class="admin-step-input" value="${s.t}" 
+                    onchange="updateStep(${ci},${ai},${si},'t',this.value)" placeholder="스텝 내용"/>
+                  <input class="admin-step-time" value="${s.m}"
+                    onchange="updateStep(${ci},${ai},${si},'m',this.value)" placeholder="시간"/>
+                  <span class="admin-step-del" onclick="deleteStep(${ci},${ai},${si})">✕</span>
+                </div>`).join('')}
+              <span class="admin-add-step" onclick="addStep(${ci},${ai})">+ 스텝 추가</span>
+            </div>
+          </div>`).join('')}
+        <span class="admin-add-act" onclick="addAct(${ci})">+ 활동 추가</span>
+        <div class="admin-save-row">
+          <button class="admin-save-btn" onclick="adminSave(${ci})">저장</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleAdminCard(ci){
+  document.getElementById('acard-'+ci).classList.toggle('open');
+}
+function updateCardName(ci,v){CARDS[ci].label=v;}
+function updateCardEmoji(ci,v){CARDS[ci].cat=v;}
+function updateActTitle(ci,ai,v){CARDS[ci].acts[ai].title=v;}
+function updateActTime(ci,ai,v){CARDS[ci].acts[ai].time=v;}
+function updateStep(ci,ai,si,key,v){CARDS[ci].acts[ai].steps[si][key]=v;}
+function deleteStep(ci,ai,si){CARDS[ci].acts[ai].steps.splice(si,1);renderAdmin();}
+function addStep(ci,ai){CARDS[ci].acts[ai].steps.push({t:'새 스텝',m:'10분'});renderAdmin();}
+function deleteAct(ci,ai){CARDS[ci].acts.splice(ai,1);renderAdmin();}
+function addAct(ci){CARDS[ci].acts.push({title:'새 활동',time:'30분',steps:[{t:'새 스텝',m:'30분'}]});renderAdmin();}
+function deleteCard(ci){if(!confirm('카드를 삭제할까요?'))return;CARDS.splice(ci,1);saveCards();renderAll();renderAdmin();}
+function adminSave(ci){
+  saveCards();
+  renderAll();
+  const btn=event.target;btn.textContent='✅ 저장됨';setTimeout(()=>btn.textContent='저장',1500);
+}
+function addCard(){
+  CARDS.push({id:'card'+Date.now(),cat:'📌',label:'새 카드',color:'#F5F5F3',text:'#444',bar:'#888',acts:[{title:'새 활동',time:'30분',steps:[{t:'새 스텝',m:'30분'}]}]});
+  saveCards();renderAdmin();
+}
+
+// ── Tabs ──────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['today','week','edit'][i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='week') renderWeek();
+  if(name==='edit') renderAdmin();
+}
+
+function renderAll(){
+  renderAnchor();
+  renderCardSelector();
+  renderActSelector();
+  renderCard();
+}
+
+// ── Init ──────────────────────────────────
+initSetupBanner();
+renderAll();
+initLog();
+</script>
+</body>
+</html>
