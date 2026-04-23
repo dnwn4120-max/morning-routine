@@ -462,7 +462,7 @@ async function saveToSheet(){
   const btn=document.querySelector('.save-btn');
   btn.disabled=true;btn.textContent='저장 중...';setStatus('syncing','⏳ 저장 중...');
   try{
-    await fetch(url,{method:'POST',body:JSON.stringify(payload)});
+    await fetch(url,{method:'POST',body:JSON.stringify(payload),mode:'no-cors'});
     setStatus('ok','✅ '+todayKey()+' 저장 완료!');
     btn.textContent='✅ 저장 완료';
     setTimeout(()=>{btn.disabled=false;btn.textContent='📊 구글 시트에 오늘 기록 저장';},3000);
