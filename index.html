@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
 <style>
-@font-face{font-family:'HakgyoansimDunggeunmisoR';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-5@1.0/HakgyoansimDunggeunmisoR.woff2') format('woff2');font-weight:normal;font-display:swap;}
+@font-face{font-family:'KyoboHand';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-5@1.0/HakgyoansimDunggeunmisoR.woff2') format('woff2');font-weight:normal;font-display:swap;}
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --cream:#FAF8F4; --cream-dark:#F0EDE6; --cream-border:#E5E0D5;
@@ -64,8 +64,8 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
 
 /* Activity selector - directly under card */
 .act-selector{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;margin-bottom:14px;padding-left:4px;}
-.act-btn{padding:6px 12px;border:1.5px solid var(--cream-border);border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--text-mid);transition:all 0.15s;}
-.act-btn.active{color:white;border-color:transparent;}
+.act-btn{padding:6px 4px;border:none;font-size:13px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-light);transition:all 0.15s;}
+.act-btn.active{color:var(--green-dark);font-weight:700;background:transparent;}
 
 /* Today card - diary style */
 .today-card{border:1.5px solid var(--cream-border);border-radius:var(--radius);background:var(--white);overflow:hidden;box-shadow:var(--shadow);position:relative;}
@@ -216,8 +216,11 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
   </div>
 
   <div class="setup-banner" id="setupBanner">
-    <strong>⚙️ 첫 설정</strong> — Google Sheets 자동 저장을 위해 Apps Script URL을 입력해주세요.
+    <strong>⚙️ 첫 설정</strong> — Google Sheets 연동을 위해 두 가지 URL을 입력해주세요.
+    <div style="font-size:12px;color:var(--text-light);margin-top:6px;">① Apps Script 웹 앱 URL</div>
     <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/...../exec"/>
+    <div style="font-size:12px;color:var(--text-light);margin-top:8px;">② 구글 시트 URL (대시보드 하단 링크용)</div>
+    <input type="text" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/..."/>
     <button onclick="saveScriptUrl()">저장하고 연결하기</button>
   </div>
   <div class="sync-status" id="syncStatus">⬜ 구글 시트 미연결</div>
@@ -302,6 +305,7 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
   </div>
 
   <p class="footer-note">💾 브라우저에 자동 저장 · 📊 구글 시트로 영구 기록</p>
+  <p class="footer-note" id="sheetLink" style="display:none;margin-top:6px;"><a href="#" id="sheetLinkA" target="_blank" style="color:var(--green);text-decoration:underline;">데이터 시트 보기</a></p>
 </div>
 
 <script>
@@ -438,8 +442,22 @@ function doReset(){const k=todayKey();TODAY[k]={anchor:false,cardId:CARDS[0]?.id
 
 // Google Sheets
 function getUrl(){return localStorage.getItem('scriptUrl')||'';}
-function saveScriptUrl(){const u=document.getElementById('scriptUrlInput').value.trim();if(!u.startsWith('https://script.google.com')){alert('URL이 올바르지 않아요.');return;}localStorage.setItem('scriptUrl',u);document.getElementById('setupBanner').style.display='none';setStatus('ok','✅ 구글 시트 연결됨');}
-function initSetupBanner(){if(getUrl()){document.getElementById('setupBanner').style.display='none';setStatus('ok','✅ 구글 시트 연결됨');}}
+function getSheetUrl(){return localStorage.getItem('sheetUrl')||'';}
+function saveScriptUrl(){
+  const u=document.getElementById('scriptUrlInput').value.trim();
+  if(!u.startsWith('https://script.google.com')){alert('Apps Script URL이 올바르지 않아요.');return;}
+  localStorage.setItem('scriptUrl',u);
+  const su=document.getElementById('sheetUrlInput').value.trim();
+  if(su)localStorage.setItem('sheetUrl',su);
+  document.getElementById('setupBanner').style.display='none';
+  setStatus('ok','✅ 구글 시트 연결됨');
+  initSheetLink();
+}
+function initSetupBanner(){if(getUrl()){document.getElementById('setupBanner').style.display='none';setStatus('ok','✅ 구글 시트 연결됨');initSheetLink();}}
+function initSheetLink(){
+  const sheetUrl=getSheetUrl();
+  if(sheetUrl){document.getElementById('sheetLinkA').href=sheetUrl;document.getElementById('sheetLink').style.display='block';}
+}
 function setStatus(t,m){const el=document.getElementById('syncStatus');el.textContent=m;el.className='sync-status '+t;}
 
 async function saveToSheet(){
@@ -452,28 +470,57 @@ async function saveToSheet(){
   catch{setStatus('err','❌ 저장 실패');btn.disabled=false;btn.textContent='📊 구글 시트에 저장';}
 }
 
-// ── Dashboard helpers ─────────────────────
-function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt;}
+// ── Dashboard — Google Sheets 기반 ────────
+let SHEET_DATA=[]; // {기록시각, 일어나앉기, 오늘의루틴, 카테고리, 완료단계, 전체단계, 소요시간(분), 소감}
 
-function getWeekDates(){
-  const mon=getMonday(new Date());
-  return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d.toISOString().slice(0,10);});
+async function fetchSheetData(){
+  const url=getUrl();if(!url)return;
+  try{
+    const res=await fetch(url+'?action=fetch');const data=await res.json();
+    if(data.status==='ok'&&data.rows) SHEET_DATA=data.rows;
+  }catch(e){console.log('fetch err',e);}
 }
 
-function isDone(k){const d=TODAY[k];return d&&d.anchor;}
-function getTotalMin(k){const d=TODAY[k];if(!d||!d.actTimes)return 0;return Object.values(d.actTimes).reduce((s,t)=>s+Math.floor((t.sec||0)/60),0);}
-function getCardLabel(k){const d=TODAY[k];if(!d)return'-';const card=CARDS.find(c=>c.id===d.cardId);return card?card.cat+' '+card.label:'-';}
-function getActTitle(k){const d=TODAY[k];if(!d)return'-';const card=CARDS.find(c=>c.id===d.cardId);if(!card)return'-';const act=card.acts[d.actIdx%card.acts.length];return act?act.title:'-';}
+function parseDate(ts){
+  // 기록시각: "2026. 4. 23. 오전 10:36:41" 형태
+  if(!ts)return null;
+  const s=String(ts);
+  const m=s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  // ISO format fallback
+  if(s.length>=10&&s[4]==='-')return s.slice(0,10);
+  return null;
+}
 
-// Streak
-function calcStreak(){let s=0;const t=new Date();for(let i=0;i<365;i++){const d=new Date(t);d.setDate(t.getDate()-i);if(isDone(d.toISOString().slice(0,10)))s++;else break;}return s;}
-function calcMaxStreak(keys){let max=0,cur=0;const sorted=keys.sort();sorted.forEach(k=>{if(isDone(k)){cur++;if(cur>max)max=cur;}else cur=0;});return max;}
+function sheetRowsByDate(){
+  const map={};
+  SHEET_DATA.forEach(r=>{
+    const key=parseDate(r['기록시각']);
+    if(!key)return;
+    if(!map[key])map[key]=[];
+    map[key].push(r);
+  });
+  return map;
+}
+
+function sheetIsDone(k){const m=sheetRowsByDate();return !!(m[k]&&m[k].some(r=>r['일어나 앉기']==='O'));}
+function sheetGetMin(k){const m=sheetRowsByDate();if(!m[k])return 0;return m[k].reduce((s,r)=>s+parseInt(r['소요시간(분)']||0),0);}
+function sheetGetCard(k){const m=sheetRowsByDate();if(!m[k]||!m[k].length)return'-';return m[k][0]['카테고리']||'-';}
+function sheetGetAct(k){const m=sheetRowsByDate();if(!m[k]||!m[k].length)return'-';return m[k][0]['오늘의 루틴']||'-';}
+function sheetGetLog(k){const m=sheetRowsByDate();if(!m[k]||!m[k].length)return'-';return m[k][0]['소감']||'-';}
+function sheetGetCompleted(k){const m=sheetRowsByDate();if(!m[k]||!m[k].length)return'0/0';const r=m[k][0];return (r['완료단계']||0)+'/'+(r['전체단계']||0);}
+
+function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt;}
+function getWeekDates(){const mon=getMonday(new Date());return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d.toISOString().slice(0,10);});}
+
+function calcStreak(){let s=0;const t=new Date();for(let i=0;i<365;i++){const d=new Date(t);d.setDate(t.getDate()-i);if(sheetIsDone(d.toISOString().slice(0,10)))s++;else break;}return s;}
+function calcMaxStreak(keys){let max=0,cur=0;keys.sort().forEach(k=>{if(sheetIsDone(k)){cur++;if(cur>max)max=cur;}else cur=0;});return max;}
 
 // Week
 function renderWeek(){
   const dates=getWeekDates();const days=['월','화','수','목','금','토','일'];const tk=todayKey();
   document.getElementById('weekGrid').innerHTML=dates.map((k,i)=>{
-    const done=isDone(k);const isToday=k===tk;const isSel=k===selectedDayKey;
+    const done=sheetIsDone(k);const isToday=k===tk;const isSel=k===selectedDayKey;
     return `<div class="day-cell${done?' done-day':''}${isToday?' today':''}${isSel?' selected':''}" onclick="selectDay('${k}')">
       <div class="day-name">${days[i]}</div><div class="day-num">${parseInt(k.slice(8))}</div>
       <div class="day-status">${done?'✅':'—'}</div></div>`;
@@ -484,23 +531,23 @@ function renderWeek(){
 function selectDay(k){selectedDayKey=k;renderWeek();}
 
 function renderDayDetail(){
-  const k=selectedDayKey,d=TODAY[k];const el=document.getElementById('dayDetail');
-  if(!d||!d.anchor){el.innerHTML=`<div class="day-detail"><div class="day-detail-title">${k}</div><div style="font-size:14px;color:var(--text-light);">기록 없음</div></div>`;return;}
-  const min=getTotalMin(k);
+  const k=selectedDayKey;const el=document.getElementById('dayDetail');
+  if(!sheetIsDone(k)){el.innerHTML=`<div class="day-detail"><div class="day-detail-title">${k}</div><div style="font-size:14px;color:var(--text-light);">기록 없음</div></div>`;return;}
   el.innerHTML=`<div class="day-detail">
     <div class="day-detail-title">${k} 기록</div>
     <div class="day-detail-row"><span>완료 여부</span><span>✅ 완료</span></div>
-    <div class="day-detail-row"><span>루틴 카드</span><span>${getCardLabel(k)}</span></div>
-    <div class="day-detail-row"><span>활동</span><span>${getActTitle(k)}</span></div>
-    <div class="day-detail-row"><span>소요 시간</span><span>${min}분</span></div>
-    <div class="day-detail-row"><span>소감</span><span>${LOG[k]||'-'}</span></div>
+    <div class="day-detail-row"><span>카테고리</span><span>${sheetGetCard(k)}</span></div>
+    <div class="day-detail-row"><span>활동</span><span>${sheetGetAct(k)}</span></div>
+    <div class="day-detail-row"><span>완료 단계</span><span>${sheetGetCompleted(k)}</span></div>
+    <div class="day-detail-row"><span>소요 시간</span><span>${sheetGetMin(k)}분</span></div>
+    <div class="day-detail-row"><span>소감</span><span>${sheetGetLog(k)}</span></div>
   </div>`;
 }
 
 // Week stats
 function renderWeekStats(){
-  const dates=getWeekDates();const doneDays=dates.filter(k=>isDone(k)).length;
-  const totalMin=dates.reduce((s,k)=>s+getTotalMin(k),0);const avgMin=doneDays?Math.round(totalMin/doneDays):0;
+  const dates=getWeekDates();const doneDays=dates.filter(k=>sheetIsDone(k)).length;
+  const totalMin=dates.reduce((s,k)=>s+sheetGetMin(k),0);const avgMin=doneDays?Math.round(totalMin/doneDays):0;
   const maxStreak=calcMaxStreak(dates);
   document.getElementById('weekStats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${doneDays}</div><div class="stat-label">완료일</div></div>
@@ -509,10 +556,12 @@ function renderWeekStats(){
     <div class="stat-card"><div class="stat-num">${avgMin}분</div><div class="stat-label">평균 소요</div></div>`;
 
   const catHtml=CARDS.map(c=>{
-    const cnt=dates.filter(k=>{const d=TODAY[k];return d&&d.cardId===c.id&&d.anchor;}).length;
-    const catMin=dates.filter(k=>{const d=TODAY[k];return d&&d.cardId===c.id;}).reduce((s,k)=>s+getTotalMin(k),0);
+    const catLabel=c.cat+' '+c.label;
+    const m=sheetRowsByDate();
+    const cnt=dates.filter(k=>m[k]&&m[k].some(r=>r['카테고리']===catLabel&&r['일어나 앉기']==='O')).length;
+    const catMin=dates.reduce((s,k)=>{if(!m[k])return s;return s+m[k].filter(r=>r['카테고리']===catLabel).reduce((ss,r)=>ss+parseInt(r['소요시간(분)']||0),0);},0);
     const col=getColors(c.id);const pct=Math.min(100,doneDays?Math.round(cnt/doneDays*100):0);
-    return `<div class="cat-bar-row"><div class="cat-bar-label">${c.cat} ${c.label}</div>
+    return `<div class="cat-bar-row"><div class="cat-bar-label">${catLabel}</div>
       <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%;background:${col.bar}"></div></div>
       <div class="cat-bar-count">${cnt}일 ${catMin}분</div></div>`;
   }).join('');
@@ -523,26 +572,23 @@ function renderWeekStats(){
 function renderMonth(){
   const now=new Date();const year=now.getFullYear(),month=now.getMonth();
   const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();
-  const adjustedFirst=(firstDay===0?6:firstDay-1); // Mon=0
+  const adjustedFirst=(firstDay===0?6:firstDay-1);
   const days=['월','화','수','목','금','토','일'];
 
   let html=days.map(d=>`<div class="month-header">${d}</div>`).join('');
   for(let i=0;i<adjustedFirst;i++)html+=`<div class="month-cell empty"></div>`;
   for(let d=1;d<=daysInMonth;d++){
     const k=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const done=isDone(k);
-    html+=`<div class="month-cell${done?' has-data':''}">${d}</div>`;
+    html+=`<div class="month-cell${sheetIsDone(k)?' has-data':''}">${d}</div>`;
   }
   document.getElementById('monthCalendar').innerHTML=`<div class="month-grid">${html}</div>`;
 
-  // Month stats
-  const monthKeys=[];for(let d=1;d<=daysInMonth;d++){const k=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;monthKeys.push(k);}
+  const monthKeys=[];for(let d=1;d<=daysInMonth;d++){monthKeys.push(`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);}
   const pastKeys=monthKeys.filter(k=>k<=todayKey());
-  const doneDays=monthKeys.filter(k=>isDone(k)).length;
+  const doneDays=monthKeys.filter(k=>sheetIsDone(k)).length;
   const maxStreak=calcMaxStreak(monthKeys);
-  const weeksDone=Math.ceil(pastKeys.length/7);
-  const weeklyRate=weeksDone?Math.round(doneDays/pastKeys.length*100):0;
-  const totalMin=monthKeys.reduce((s,k)=>s+getTotalMin(k),0);
+  const weeklyRate=pastKeys.length?Math.round(doneDays/pastKeys.length*100):0;
+  const totalMin=monthKeys.reduce((s,k)=>s+sheetGetMin(k),0);
 
   document.getElementById('monthStats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${doneDays}</div><div class="stat-label">완료일</div></div>
@@ -550,11 +596,10 @@ function renderMonth(){
     <div class="stat-card"><div class="stat-num">${weeklyRate}%</div><div class="stat-label">월 완료율</div></div>
     <div class="stat-card"><div class="stat-num">${totalMin}분</div><div class="stat-label">총 소요 시간</div></div>`;
 
-  // Weekday stats
   const dayNames=['월','화','수','목','금','토','일'];
   const wdStats=dayNames.map((_,wi)=>{
     const wdKeys=monthKeys.filter(k=>{const d=new Date(k).getDay();return(d===0?6:d-1)===wi;});
-    const wdDone=wdKeys.filter(k=>isDone(k)).length;
+    const wdDone=wdKeys.filter(k=>sheetIsDone(k)).length;
     const pct=wdKeys.length?Math.round(wdDone/wdKeys.length*100):0;
     return `<div class="weekday-stat"><div class="weekday-name">${dayNames[wi]}</div>
       <div class="weekday-bar"><div class="weekday-fill" style="width:${pct}%"></div></div>
@@ -564,10 +609,11 @@ function renderMonth(){
 }
 
 // Dashboard tabs
-function switchDash(name){
+async function switchDash(name){
   document.querySelectorAll('.dash-tab').forEach(t=>t.classList.toggle('active',t.textContent==={day:'일',week:'주',month:'월'}[name]));
   document.querySelectorAll('.dash-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('dp-'+name).classList.add('active');
+  await fetchSheetData();
   if(name==='day')renderWeek();
   if(name==='week'){renderWeek();renderWeekStats();}
   if(name==='month')renderMonth();
@@ -634,11 +680,11 @@ function adminSave(e){saveCards();renderAll();const btn=e.target;btn.textContent
 function addCard(){CARDS.push({id:'card'+Date.now(),cat:'📌',label:'새 카드',color:'#F5F5F3',text:'#444',bar:'#888',acts:[{title:'새 활동',time:'30분',steps:[{t:'새 스텝',m:'30분'}]}]});saveCards();renderAdmin();}
 
 // Tabs
-function switchTab(name){
+async function switchTab(name){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['record','dash','edit'][i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
-  if(name==='dash'){document.getElementById('streakNum').textContent=calcStreak();switchDash('day');}
+  if(name==='dash'){await fetchSheetData();document.getElementById('streakNum').textContent=calcStreak();switchDash('day');}
   if(name==='edit')renderAdmin();
 }
 
