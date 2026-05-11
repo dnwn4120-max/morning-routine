@@ -505,7 +505,7 @@ function parseDate(ts){
 function sheetRowsByDate(){
   const map={};
   SHEET_DATA.forEach(r=>{
-    const key=parseDate(r['기록시각']);
+    const key=parseDate(r['기록 일시']);
     if(!key)return;
     if(!map[key])map[key]=[];
     map[key].push(r);
@@ -716,6 +716,8 @@ async function switchTab(name){
 function renderAll(){renderAnchor();renderCardSelector();renderActSelector();renderCard();}
 
 initSetupBanner();renderAll();initLog();
+// 페이지 로드 시 시트 데이터 자동 로드
+fetchSheetData();
 </script>
 </body>
 </html>
