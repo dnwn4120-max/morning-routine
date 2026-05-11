@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
 <style>
-@font-face{font-family:'KyoboHand';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-5@1.0/HakgyoansimDunggeunmisoR.woff2') format('woff2');font-weight:normal;font-display:swap;}
+@font-face{font-family:'HandFont';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2411-3@1.0/Ownglyph_ParkDaHyun.woff2') format('woff2');font-weight:normal;font-display:swap;}
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --cream:#FAF8F4; --cream-dark:#F0EDE6; --cream-border:#E5E0D5;
@@ -64,8 +64,8 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
 
 /* Activity selector - directly under card */
 .act-selector{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;margin-bottom:14px;padding-left:4px;}
-.act-btn{padding:6px 4px;border:none;font-size:13px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-light);transition:all 0.15s;}
-.act-btn.active{color:var(--green-dark);font-weight:700;background:transparent;}
+.act-btn{padding:6px 12px;border:none;border-radius:0;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-light);transition:all 0.15s;border-bottom:2px solid transparent;}
+.act-btn.active{font-weight:700;background:transparent;}
 
 /* Today card - diary style */
 .today-card{border:1.5px solid var(--cream-border);border-radius:var(--radius);background:var(--white);overflow:hidden;box-shadow:var(--shadow);position:relative;}
@@ -83,7 +83,7 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
 .step-check{width:20px;height:20px;border-radius:5px;border:none;background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;margin-top:1px;font-weight:700;color:var(--text-light);}
 .step-row.done-step .step-check{background:transparent;border:none;color:var(--green-dark);}
 .step-body{flex:1;}
-.step-text{font-size:16px;color:var(--text);line-height:1.5;font-family:'KyoboHand',cursive;}
+.step-text{font-size:16px;color:var(--text);line-height:1.5;font-family:'HandFont',cursive;}
 .step-row.done-step .step-text{text-decoration:line-through;color:var(--text-light);}
 .step-meta{display:flex;align-items:center;gap:8px;margin-top:3px;}
 .step-planned{font-size:12px;color:var(--text-light);}
@@ -106,7 +106,7 @@ body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;backg
 
 /* Log */
 .log-area{border:1.5px solid var(--cream-border);border-radius:var(--radius-sm);background:white;padding:12px 14px;background-image:repeating-linear-gradient(transparent,transparent 27px,var(--cream-border) 27px,var(--cream-border) 28px);background-position:0 12px;}
-.log-input{width:100%;background:transparent;border:none;outline:none;font-size:16px;color:var(--text);font-family:'KyoboHand',cursive;resize:none;line-height:28px;}
+.log-input{width:100%;background:transparent;border:none;outline:none;font-size:16px;color:var(--text);font-family:'HandFont',cursive;resize:none;line-height:28px;}
 
 .btn-row{display:flex;gap:8px;margin-top:12px;}
 .save-btn{flex:1;padding:13px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;}
@@ -377,7 +377,7 @@ function renderActSelector(){
   const card=getCard(),col=getColors(card.id);
   document.getElementById('actSelector').innerHTML=card.acts.map((a,i)=>{
     const active=td().actIdx===i;
-    return `<button class="act-btn${active?' active':''}" style="${active?`background:${col.bar};border-color:${col.bar};color:white`:''}" onclick="selectAct(${i})">${a.title}</button>`;
+    return `<button class="act-btn${active?' active':''}" style="${active?`color:${col.text};border-bottom:2px solid ${col.bar}`:''}" onclick="selectAct(${i})">${a.title}</button>`;
   }).join('');
 }
 
@@ -416,7 +416,7 @@ function renderCard(){
   const doneCount=act.steps.filter((_,si)=>td().stepChecked[card.id+'-'+td().actIdx+'-'+si]).length;
   const pct=act.steps.length?doneCount/act.steps.length*100:0;
   document.getElementById('todayCard').innerHTML=`
-    <div class="tc-header"><span class="cat-tag" style="background:${col.bg};color:${col.text}">${card.cat} ${card.label}</span><span class="tc-title">${act.title}</span><span class="tc-time">${act.time}</span></div>
+    <div class="tc-header"><span class="tc-time" style="margin-left:0">${act.time}</span></div>
     <div style="height:4px;background:var(--cream-dark);"><div style="height:100%;width:${pct}%;background:${col.bar};border-radius:2px;transition:width 0.3s"></div></div>
     <div class="steps-area">${steps}</div>`;
   document.getElementById('progFill').style.width=pct+'%';
