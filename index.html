@@ -486,7 +486,9 @@ let SHEET_DATA=[]; // {기록시각, 일어나앉기, 오늘의루틴, 카테고
 async function fetchSheetData(){
   const url=getUrl();if(!url)return;
   try{
-    const res=await fetch(url+'?action=fetch');const data=await res.json();
+    const res=await fetch(url+'?action=fetch',{redirect:'follow'});
+    const text=await res.text();
+    const data=JSON.parse(text);
     if(data.status==='ok'&&data.rows) SHEET_DATA=data.rows;
   }catch(e){console.log('fetch err',e);}
 }
